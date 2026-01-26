@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>验证码批量识别工具</title>
+    <style>
+        /* 全局样式重置 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
+        }
+
+        /* 页面容器 */
+        .container {
+            width: 90%;
+            max-width: 1000px;
+            margin: 50px auto;
+            padding: 30px;
+            background-color: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        /* 标题样式 */
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 26px;
+            font-weight: 600;
+        }
+
+        /* 表单区域 */
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 10px;
+            font-size: 16px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        /* 文件上传框 */
+        #files {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background-color: #f9f9f9;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+
+        #files:hover {
+            border-color: #007bff;
+        }
+
+        /* 提交按钮 */
+        .btn {
+            padding: 12px 35px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn:hover {
+            background-color: #0056b3;
+        }
+
+        /* 错误提示框 */
+        .error-box {
+            padding: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #dc3545;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 6px;
+            font-size: 15px;
+        }
+
+        /* 结果表格 */
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 30px;
+            background-color: #fff;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .result-table th {
+            padding: 15px;
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            text-align: center;
+            font-size: 15px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .result-table td {
+            padding: 12px 15px;
+            border: 1px solid #e9ecef;
+            text-align: center;
+            font-size: 14px;
+            color: #333;
+        }
+
+        /* 状态样式 */
+        .correct {
+            color: #28a745;
+            font-weight: 600;
+        }
+
+        .incorrect {
+            color: #dc3545;
+            font-weight: 600;
+        }
+
+        .invalid {
+            color: #6c757d;
+            font-weight: 600;
+        }
+
+        /* 统计信息框 */
+        .stats-box {
+            margin-top: 20px;
+            padding: 18px;
+            text-align: center;
+            background-color: #e9f7fe;
+            border: 1px solid #b3e5fc;
+            border-radius: 6px;
+            font-size: 16px;
+            color: #212529;
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .stats-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stats-box span {
+            font-weight: 600;
+            color: #007bff;
+        }
+
+        /* 返回链接 */
+        .single-link {
+            display: block;
+            text-align: center;
+            margin-top: 25px;
+            color: #007bff;
+            text-decoration: none;
+            font-size: 15px;
+            transition: color 0.3s ease;
+        }
+
+        .single-link:hover {
+            color: #0056b3;
+            text-decoration: underline;
+        }
+
+        /* 响应式适配 */
+        @media (max-width: 768px) {
+            .container {
+                width: 95%;
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 22px;
+            }
+
+            .result-table {
+                font-size: 12px;
+            }
+
+            .result-table th, .result-table td {
+                padding: 8px 5px;
+            }
+
+            .stats-box {
+                flex-direction: column;
+                gap: 10px;
+                padding: 15px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>验证码批量识别工具</h1>
+
+        <!-- 批量上传表单 -->
+        <form method="POST" enctype="multipart/form-data">
+            {{ form.hidden_tag() }}  <!-- CSRF保护 -->
+
+            <div class="form-group">
+                <label for="files">选择验证码图片（支持多选，仅支持PNG/JPG/JPEG格式）</label>
+                <input type="file" id="files" name="files" multiple="multiple" accept="image/png,image/jpg,image/jpeg">
+            </div>
+
+            <div class="form-group">
+                <button type="submit" class="btn">开始批量识别</button>
+            </div>
+        </form>
+
+        <!-- 错误提示 -->
+        {% if error %}
+        <div class="error-box">⚠️ {{ error }}</div>
+        {% endif %}
+
+        <!-- 批量识别结果表格 -->
+        {% if results %}
+        <table class="result-table">
+            <thead>
+                <tr>
+                    <th>序号</th>
+                    <th>文件名</th>
+                    <th>标准答案</th>
+                    <th>识别结果</th>
+                    <th>识别状态</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in results %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ item.filename }}</td>
+                    <td>{{ item.std_ans }}</td>
+                    <td>{{ item.pred_ans }}</td>
+                    <td>
+                        {% if item.is_filename_valid == false %}
+                        <span class="invalid">❓ 文件名无效</span>
+                        {% elif item.is_correct %}
+                        <span class="correct">✅ 识别正确</span>
+                        {% else %}
+                        <span class="incorrect">❌ 识别错误</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- 批量识别统计信息 -->
+        <div class="stats-box">
+            <div class="stats-item">📊 有效文件总数：<span>{{ total_count }}</span></div>
+            <div class="stats-item">✅ 识别正确数：<span>{{ correct_count }}</span></div>
+            <div class="stats-item">📈 识别正确率：<span>{{ accuracy }}%</span></div>
+        </div>
+        {% endif %}
+
+        <!-- 返回单张识别页面链接 -->
+        <a href="{{ url_for('single_recognize') }}" class="single-link">← 返回单张验证码识别</a>
+    </div>
+</body>
+</html>

@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<!-- saved from url=(0043)http://127.0.0.1:8848/test1/demo_index.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧动物园场馆管理系统</title>
+    <!-- 导入字体图标 -->
+    <link rel="stylesheet" href="./智慧动物园场馆管理系统_files/iconfont.css">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            /* 字体无法选中 */
+            user-select: none;
+        }
+
+        body {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 12px;
+            background-color: #ecf0f3;
+            color: #a0a5a8;
+
+
+
+			background-image: url('https://img2.baidu.com/it/u=3764567528,3148986946&fm=253&fmt=auto&app=120&f=JPEG?w=1200&h=735'); /* 添加这行 */
+
+			/*background-image: url('https://iknow-pic.cdn.bcebos.com/e61190ef76c6a7ef516246b8effaaf51f2de66ec')*/
+
+			background-size: cover; /* 可选，使图片覆盖整个容器 */
+			background-position: center; /* 可选，设置图片位置 */
+			background-repeat: no-repeat; /* 可选，防止图片重复 */
+
+
+        }
+
+
+		.shell {
+            position: relative;
+            width: 1000px;
+            min-width: 1000px;
+            min-height: 600px;
+            height: 600px;
+            padding: 25px;
+            background-color: #ecf0f3;
+            box-shadow: 10px 10px 10px #d1d9e6, -10px -10px 10px #f9f9f9;
+            border-radius: 12px;
+            overflow: hidden;
+
+			opacity: 0.9; /* 设置整体透明度 */
+
+        }
+
+        /* 设置响应式 */
+        @media (max-width: 1200px) {
+            .shell {
+                transform: scale(0.7);
+            }
+        }
+
+        @media (max-width: 1000px) {
+            .shell {
+                transform: scale(0.6);
+            }
+        }
+
+        @media (max-width: 800px) {
+            .shell {
+                transform: scale(0.5);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .shell {
+                transform: scale(0.4);
+            }
+        }
+
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: absolute;
+            top: 0;
+            width: 600px;
+            height: 100%;
+            padding: 25px;
+            background-color: #ecf0f3;
+            transition: 1.25s;
+        }
+
+        .form {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+        }
+
+        .iconfont {
+            margin: 0 5px;
+            border: rgba(0, 0, 0, 0.5) 2px solid;
+            border-radius: 50%;
+            font-size: 25px;
+            padding: 3px;
+            opacity: 0.5;
+            transition: 0.1s;
+        }
+
+        .iconfont:hover {
+            opacity: 1;
+            transition: 0.15s;
+            cursor: pointer;
+        }
+
+        .form_input {
+            width: 350px;
+            height: 40px;
+            margin: 4px 0;
+            padding-left: 25px;
+            font-size: 13px;
+            letter-spacing: 0.15px;
+            border: none;
+            outline: none;
+            background-color: #ecf0f3;
+            transition: 0.25s ease;
+            border-radius: 8px;
+            box-shadow: inset 2px 2px 4px #d1d9e6, inset -2px -2px 4px #f9f9f9;
+        }
+
+        .form_input:focus {
+            box-shadow: inset 4px 4px 4px #d1d9e6, inset -4px -4px 4px #f9f9f9;
+        }
+
+        .form_span {
+            margin-top: 30px;
+            margin-bottom: 12px;
+        }
+
+        .form_link {
+            color: #181818;
+            font-size: 15px;
+            margin-top: 25px;
+            border-bottom: 1px solid #a0a5a8;
+            line-height: 2;
+        }
+		/* 新增性别按钮样式 */
+		.form_gender {
+		    display: flex;
+		    align-items: center;
+		    margin-top: 20px; /* 根据需要调整间距 */
+		}
+
+		.form_gender_label {
+		    font-size: 14px;
+		    margin-right: 10px; /* 标签与单选按钮之间的间距 */
+		}
+
+		.form_gender_radio {
+		    display: flex;
+		    align-items: center;
+		    margin-right: 20px; /* 单选按钮之间的间距，最后一个按钮可通过CSS伪类或JavaScript去除间距 */
+		    cursor: pointer;
+		}
+
+		.form_gender_radio input[type="radio"] {
+		    margin-right: 5px; /* 单选按钮与其标签之间的间距 */
+		    cursor: pointer; /* 确保单选按钮在悬停时显示可点击状态 */
+		}
+
+		/* 可选：为选中的单选按钮添加样式 */
+		.form_gender_radio input[type="radio"]:checked + span {
+		    font-weight: bold; /* 选中时标签加粗 */
+		    /* 可以添加其他样式，如颜色变化等 */
+		}
+
+		/* 去除最后一个单选按钮的右侧间距（使用伪类选择器，假设只有两个单选按钮） */
+		.form_gender_radio:last-child {
+		    margin-right: 0;
+		}
+
+        .title {
+            font-size: 34px;
+            font-weight: 700;
+            line-height: 1.3;
+            color: #181818;
+            letter-spacing: 10px;
+        }
+
+        .description {
+            font-size: 14px;
+            letter-spacing: 0.25px;
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        .button {
+            width: 180px;
+            height: 50px;
+            border-radius: 25px;
+            margin-top: 50px;
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: 1.15px;
+            background-color: #4B70E2;
+            color: #f9f9f9;
+            box-shadow: 8px 8px 16px #d1d9e6, -8px -8px 16px #f9f9f9;
+            border: none;
+            outline: none;
+        }
+
+        .a-container {
+            z-index: 100;
+            left: calc(100% - 600px);
+        }
+
+        .b-container {
+            left: calc(100% - 600px);
+            z-index: 0;
+        }
+
+        .switch {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 400px;
+            padding: 50px;
+            z-index: 200;
+            transition: 1.25s;
+            background-color: #ecf0f3;
+            overflow: hidden;
+            box-shadow: 4px 4px 10px #d1d9e6, -4px -4px 10px #d1d9e6;
+        }
+
+        .switch_circle {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            border-radius: 50%;
+            background-color: #ecf0f3;
+            box-shadow: inset 8px 8px 12px #b8bec7, inset -8px -8px 12px #fff;
+            bottom: -60%;
+            left: -60%;
+            transition: 1.25s;
+        }
+
+        .switch_circle-t {
+            top: -30%;
+            left: 60%;
+            width: 300px;
+            height: 300px;
+        }
+
+        .switch_container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            position: absolute;
+            width: 400px;
+            padding: 50px 55px;
+            transition: 1.25s;
+        }
+
+        .switch_button {
+            cursor: pointer;
+        }
+
+        .switch_button:hover,
+        .submit:hover {
+            box-shadow: 6px 6px 10px #d1d9e6, -6px -6px 10px #f9f9f9;
+            transform: scale(0.985);
+            transition: 0.25s;
+        }
+
+        .switch_button:active,
+        .switch_button:focus {
+            box-shadow: 2px 2px 6px #d1d9e6, -2px -2px 6px #f9f9f9;
+            transform: scale(0.97);
+            transition: 0.25s;
+        }
+
+        .is-txr {
+            left: calc(100% - 400px);
+            transition: 1.25s;
+            transform-origin: left;
+        }
+
+        .is-txl {
+            left: 0;
+            transition: 1.25s;
+            transform-origin: right;
+        }
+
+        .is-z {
+            z-index: 200;
+            transition: 1.25s;
+        }
+
+        .is-hidden {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            transition: 1.25s;
+        }
+
+        .is-gx {
+            animation: is-gx 1.25s;
+        }
+
+        @keyframes is-gx {
+
+            0%,
+            10%,
+            100% {
+                width: 400px;
+            }
+
+            30%,
+            50% {
+                width: 500px;
+            }
+        }
+
+
+
+
+
+    </style>
+</head>
+
+<body>
+
+		<!-- {{str}} -->
+		<div class="shell">
+			<div id="app1">
+			<div class="container a-container" id="a-container">
+				<form action="http://127.0.0.1:8848/test1/demo_index.html" method="" class="form" id="a-form">
+					<h2 class="form_title title">创建账号</h2>
+					<!--
+					<div class="form_icons">
+						<i class="iconfont icon-QQ"></i>
+						<i class="iconfont icon-weixin"></i>
+						<i class="iconfont icon-bilibili-line"></i>
+					</div>
+					-->
+					<span class="form_span">选择注册方式账号密码注册</span>
+					<!-- :style表示style的值从data里面找 -->
+					<input type="text" v-model="account" class="form_input" @blur="doLoginAccountCheck" placeholder="账号">
+					<br />
+					<label :style="{color:tipsColor}">{{checkTips}}</label>
+					<input type="text" v-model="name" class="form_input"  placeholder="名字">
+					<input type="password" v-model="pwd" class="form_input" placeholder="密码">
+					<input type="text" v-model="tel" class="form_input" placeholder="电话">
+					<input type="text" v-model="age" class="form_input" placeholder="年龄">
+
+					<!-- 添加用户身份证的文本框 -->
+					<input type="text" v-model="idcard" class="form_input" placeholder="身份证号">
+					<input type="text" v-model="remark" class="form_input" placeholder="备注">
+					<!-- 添加性别标签和按钮 -->
+					<!-- 性别单选按钮 -->
+					<div class="form_gender">
+						<label class="form_gender_label">性别：</label>
+						<label class="form_gender_radio">
+							<input type="radio" v-model="gender1" name="gender" value="男" id="male_radio">
+							<span>男</span>
+						</label>
+						<label class="form_gender_radio">
+							<input type="radio" v-model="gender1" name="gender" value="女" id="female_radio">
+							<span>女</span>
+						</label>
+					</div>
+
+
+					<button type="button" @click="doRegistSubmit" class="form_button button submit">SIGN UP</button>
+
+
+
+
+				</form>
+			</div>
+			</div>
+
+
+
+
+
+
+
+			<div class="container b-container" id="b-container">
+			<div id="app2">
+				<form action="http://127.0.0.1:8848/test1/demo_index.html" method="" class="form" id="b-form">
+					<h2 class="form_title title">登入账号</h2>
+
+					<!-- <div class="form_icons">
+						<i class="iconfont icon-QQ"></i>
+						<i class="iconfont icon-weixin"></i>
+						<i class="iconfont icon-bilibili-line"></i>
+					</div> -->
+
+					<span class="form_span">选择登录方式账号密码登录</span>
+					<input type="text" v-model="account2" class="form_input" placeholder="账号">
+					<input type="password" v-model="pwd2" class="form_input" placeholder="密码">
+					<a class="form_link">忘记密码？</a>
+					<button type="button" @click="doLoginSubmit" class="form_button button submit">SIGN IN</button>
+				</form>
+			</div>
+			</div>
+
+
+
+
+
+			<div class="switch" id="switch-cnt">
+			    <div class="switch_circle"></div>
+			    <div class="switch_circle switch_circle-t"></div>
+			    <div class="switch_container" id="switch-c1">
+			        <h2 class="switch_title title" style="letter-spacing: 0;">Welcome to ZooHouse！</h2>
+			        <p class="switch_description description">冒险家已经有账号了嘛，去登入账号来进入管理动物世界吧！！！</p>
+			        <button class="switch_button button switch-btn">SIGN IN</button>
+			    </div>
+
+			    <div class="switch_container is-hidden" id="switch-c2">
+			        <h2 class="switch_title title" style="letter-spacing: 0;">Hello Friend！</h2>
+			        <p class="switch_description description">尊贵的冒险家去注册一个账号，成为管理员，让我们踏入管理动物场馆的旅途！</p>
+			        <button class="switch_button button switch-btn">SIGN UP</button>
+			    </div>
+			</div>
+
+
+
+
+
+
+<script src="js/vue.js" type="text/javascript"></script>
+<script src="js/jquery-3.6.0.min.js" type="text/javascript" ></script>
+<script>
+    let switchCtn = document.querySelector("#switch-cnt");
+    let switchC1 = document.querySelector("#switch-c1");
+    let switchC2 = document.querySelector("#switch-c2");
+    let switchCircle = document.querySelectorAll(".switch_circle");
+    let switchBtn = document.querySelectorAll(".switch-btn");
+    let aContainer = document.querySelector("#a-container");
+    let bContainer = document.querySelector("#b-container");
+    let allButtons = document.querySelectorAll(".submit");
+
+    let getButtons = (e) => e.preventDefault();
+
+    let changeForm = (e) => {
+        // 修改类名
+        switchCtn.classList.add("is-gx");
+        setTimeout(() => {
+            switchCtn.classList.remove("is-gx");
+        }, 1500);
+        switchCtn.classList.toggle("is-txr");
+        switchCircle[0].classList.toggle("is-txr");
+        switchCircle[1].classList.toggle("is-txr");
+
+        switchC1.classList.toggle("is-hidden");
+        switchC2.classList.toggle("is-hidden");
+        aContainer.classList.toggle("is-txl");
+        bContainer.classList.toggle("is-txl");
+        bContainer.classList.toggle("is-z");
+    };
+
+    // 初始设置，显示 SIGN IN 部分
+    let initialize = () => {
+        switchC1.classList.remove("is-hidden"); // 显示 SIGN IN 部分
+        switchC2.classList.add("is-hidden");    // 隐藏 SIGN UP 部分
+        switchCircle[0].classList.remove("is-txr");
+        switchCircle[1].classList.remove("is-txr");
+    };
+
+    // 点击切换
+    let shell = (e) => {
+        initialize(); // 初始设置
+        allButtons.forEach(button => {
+            button.addEventListener("click", getButtons);
+        });
+        switchBtn.forEach(button => {
+            button.addEventListener("click", changeForm);
+        });
+    };
+
+    window.addEventListener("load", shell);
+</script>
+
+
+
+
+
+	<script>
+	class reloadPlugin {
+		reload(path, options){
+			return decodeURIComponent(Dcloud_Html_preview_filename) !== path;
+		}
+	}
+	if (LiveReload){
+		LiveReload.addPlugin(reloadPlugin)
+	}
+
+	</script>
+
+	<script type="text/javascript">
+		let vm1 = new Vue({
+			el:"#app1",
+			data:{
+				// str:"湖北大学智慧动物管理测试：注册页面"
+				account:"",
+				pwd:"",
+				name:"",
+				gender1:"male",
+				age:18,
+				idcard:"",
+				tel:"",
+				remark:"备注",
+
+				checkTips:"",
+				tipsColor:"red"
+
+			},
+			methods:{
+				doLoginAccountCheck(){
+					// alert("验证账号是否可用的函数被调用");
+					// alert(this.account);
+					// 向后端UserController控制器中的check接口方法发送请求，并将account传递给接口
+					let url = "http://localhost:8080/user/check";
+
+					//冒号前的account与后端参数名一致，如果是对象则与所有属性名一致
+					let params = {account: this.account};
+					$.get(url,params,res=>{
+						//输出验证结果
+						// console.log(res);
+						//
+						this.checkTips = res.msg;
+						if(res.code == 200) {
+							this.tipsColor="green";
+						}else{
+							this.tipsColor="red";
+						}
+					},"JSON");
+
+				},
+				doRegistSubmit(){
+					let url = "http://localhost:8080/user/regist";
+					let params = {
+						loginAccount:this.account,
+						loginPwd:this.pwd,
+						userName:this.name,
+						userGender:this.gender1,
+						userTel:this.tel,
+						userAge:this.age,
+						userIdCard:this.idcard,
+						userImg:"default1.png",
+						userRemark:this.remark
+					};
+					$.get(url,params,res=>{
+						if(res.code==200) {
+							//成功
+							changeForm();
+						} else{
+							alert(res.msg);
+						}
+					},"JSON");
+				}
+			}
+		});
+		let vm2 = new Vue({
+			el:"#app2",
+			data:{
+				account2:"",
+				pwd2:""
+
+			},
+			methods:{
+				doLoginSubmit(){
+					console.log('登录按钮被点击');
+					let url = "http://localhost:8080/user/login";
+					let params = {account:this.account2, pwd:this.pwd2};
+					$.get(url,params,res=>{
+						if(res.code==500){
+							alert(res.msg);
+						}else{
+							//登录成功
+							localStorage.setItem("userId",res.data.userId);
+							localStorage.setItem("loginAccount",res.data.loginAccount);
+							localStorage.setItem("userName",res.data.userName);
+							localStorage.setItem("userImg",res.data.userImg);
+
+							window.location.href="index.html";
+						}
+					},"JSON");
+				}
+			}
+		});
+	</script>
+	</body></html>

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>验证码单张识别工具</title>
+    <style>
+        /* 全局样式重置 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
+        }
+
+        /* 页面容器 */
+        .container {
+            width: 90%;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 30px;
+            background-color: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        /* 标题样式 */
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 26px;
+            font-weight: 600;
+        }
+
+        /* 表单区域 */
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 10px;
+            font-size: 16px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        /* 文件上传框 */
+        #file {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background-color: #f9f9f9;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+
+        #file:hover {
+            border-color: #007bff;
+        }
+
+        /* 提交按钮 */
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn:hover {
+            background-color: #0056b3;
+        }
+
+        /* 结果展示区域 */
+        .result-box {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .result-item {
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .result-item label {
+            display: inline-block;
+            width: 100px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        /* 对错状态样式 */
+        .correct {
+            color: #28a745;
+            font-weight: 600;
+        }
+
+        .incorrect {
+            color: #dc3545;
+            font-weight: 600;
+        }
+
+        .unknown {
+            color: #6c757d;
+            font-weight: 600;
+        }
+
+        /* 批量识别链接 */
+        .batch-link {
+            display: block;
+            text-align: center;
+            margin-top: 25px;
+            color: #007bff;
+            text-decoration: none;
+            font-size: 15px;
+            transition: color 0.3s ease;
+        }
+
+        .batch-link:hover {
+            color: #0056b3;
+            text-decoration: underline;
+        }
+
+        /* 响应式适配 */
+        @media (max-width: 768px) {
+            .container {
+                width: 95%;
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 22px;
+            }
+
+            .result-item {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>验证码单张识别工具</h1>
+
+        <!-- 单张上传表单 -->
+        <form method="POST" enctype="multipart/form-data">
+            {{ form.hidden_tag() }}  <!-- CSRF保护 -->
+
+            <div class="form-group">
+                <label for="file">选择验证码图片（仅支持PNG/JPG/JPEG格式）</label>
+                <input type="file" id="file" name="file" accept="image/png,image/jpg,image/jpeg">
+            </div>
+
+            <div class="form-group">
+                <button type="submit" class="btn">开始识别</button>
+            </div>
+        </form>
+
+        <!-- 识别结果展示 -->
+        {% if result %}
+        <div class="result-box">
+            <div class="result-item">
+                <label>标准答案：</label>
+                <span>{{ standard_answer }}</span>
+            </div>
+            <div class="result-item">
+                <label>识别结果：</label>
+                <span>{{ result }}</span>
+            </div>
+            <div class="result-item">
+                <label>识别状态：</label>
+                {# 核心修复：改用Jinja2支持的判断语法 #}
+                {% if is_correct %}
+                <span class="correct">✅ 识别正确</span>
+                {% elif is_correct == false %}
+                <span class="incorrect">❌ 识别错误</span>
+                {% else %}
+                <span class="unknown">❓ 无法判断（文件名格式错误）</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 批量识别入口 -->
+        <a href="{{ url_for('batch_recognize') }}" class="batch-link">→ 进入批量验证码识别</a>
+    </div>
+</body>
+</html>

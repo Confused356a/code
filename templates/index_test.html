@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>验证码验证</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "微软雅黑", sans-serif;
+        }
+        .container {
+            width: 400px;
+            margin: 100px auto;
+            padding: 20px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+        .captcha-box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        #captcha_img {
+            width: 150px;
+            height: 50px;
+            border: 1px solid #ddd;
+            cursor: pointer;
+            object-fit: cover;
+        }
+        .input-box {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        #user_input {
+            width: 180px;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        #submit_btn {
+            padding: 8px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        #submit_btn:hover {
+            background: #0056b3;
+        }
+        .result-box {
+            text-align: center;
+            font-size: 16px;
+            min-height: 24px;
+        }
+        .success {
+            color: #28a745;
+        }
+        .error {
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>验证码验证</h1>
+        <div class="captcha-box">
+            <img id="captcha_img"
+                 src="/get_captcha/{{ captcha_img }}?t={{ range(1, 1000000) | random }}"
+                 alt="验证码图片"
+                 title="点击刷新验证码">
+        </div>
+        <div class="input-box">
+            <input type="text" id="user_input" placeholder="请输入验证码（不分大小写）">
+            <button id="submit_btn">提交验证</button>
+        </div>
+        <div class="result-box" id="result"></div>
+    </div>
+
+    <script>
+        let currentCaptchaImg = "{{ captcha_img }}";
+
+        window.onload = function() {
+            document.getElementById('captcha_img').addEventListener('click', refreshCaptcha);
+            document.getElementById('submit_btn').addEventListener('click', verifyCaptcha);
+            document.getElementById('user_input').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') verifyCaptcha();
+            });
+        };
+
+        // 刷新验证码
+        function refreshCaptcha() {
+            fetch('/refresh_captcha')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        currentCaptchaImg = data.img_name;
+                        document.getElementById('captcha_img').src = `/get_captcha/${currentCaptchaImg}?t=${Math.random()}`;
+                        document.getElementById('user_input').value = '';
+                        document.getElementById('result').textContent = '';
+                        document.getElementById('result').className = 'result-box';
+                    }
+                })
+                .catch(err => {
+                    showResult('刷新验证码失败！', 'error');
+                    console.error('刷新失败：', err);
+                });
+        }
+
+        // 验证验证码（核心：添加跳转逻辑）
+        function verifyCaptcha() {
+            const userInput = document.getElementById('user_input').value.trim();
+            if (!userInput) {
+                showResult('请先输入验证码！', 'error');
+                return;
+            }
+            // 过滤非字母/数字字符
+            const filteredInput = userInput.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+
+            const formData = new FormData();
+            formData.append('user_input', filteredInput);
+
+            fetch('/verify_captcha', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => {
+                if (!res.ok) throw new Error('请求失败');
+                return res.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    // 验证成功：显示提示 + 跳转首页
+                    showResult(data.msg, 'success');
+                    // 延迟1秒跳转（让用户看到提示）
+                    setTimeout(() => {
+                        window.location.href = data.redirect;  // 跳转到home.html
+                    }, 1000);
+                } else {
+                    // 验证失败：显示提示 + 刷新验证码
+                    showResult(data.msg, 'error');
+                    if (data.new_img) {
+                        currentCaptchaImg = data.new_img;
+                        document.getElementById('captcha_img').src = `/get_captcha/${currentCaptchaImg}?t=${Math.random()}`;
+                        document.getElementById('user_input').value = '';
+                    }
+                }
+            })
+            .catch(err => {
+                showResult('网络错误，验证失败！', 'error');
+                console.error('验证失败：', err);
+            });
+        }
+
+        // 显示提示信息
+        function showResult(msg, type) {
+            const resultBox = document.getElementById('result');
+            resultBox.textContent = msg;
+            resultBox.className = `result-box ${type}`;
+        }
+    </script>
+</body>
+</html>
