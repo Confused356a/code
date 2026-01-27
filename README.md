@@ -3,7 +3,7 @@
 
 
 <h5>2万张图片训练正确率80%</h5>
-<h5>model.pth用train.py训练</h5>
+<h5>model.pth用train.py训练在本地</h5>
 
 
 
