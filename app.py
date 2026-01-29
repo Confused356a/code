@@ -38,7 +38,7 @@ MODEL = torch.load("model.pth", weights_only=False).to(DEVICE)
 MODEL.eval()  # 评估模式，关闭训练层
 
 
-# ------------------------ MySQL数据库操作（适配已有code_captcha数据） ------------------------
+# ------------------------ MySQL数据库操作（新增日志表初始化） ------------------------
 def get_mysql_conn():
     """创建MySQL连接，连接code_user_db数据库（核心：固定密码）"""
     try:
@@ -70,7 +70,7 @@ def verify_password(input_pwd: str, db_pwd: str) -> bool:
 
 
 def init_captcha_tables():
-    """初始化表（仅创建缺失表/插入缺失账号，不影响已有数据）"""
+    """初始化表（新增日志表code_verify_log，仅创建缺失表/插入缺失账号，不影响已有数据）"""
     conn = get_mysql_conn()
     if not conn:
         return
@@ -96,8 +96,24 @@ def init_captcha_tables():
                 create_time DATETIME NOT NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
             """
+            # 3. 新增：验证码验证日志表（系统日志，记录所有验证行为）
+            create_log_sql = """
+            CREATE TABLE IF NOT EXISTS code_verify_log (
+                log_id INT AUTO_INCREMENT PRIMARY KEY COMMENT '日志唯一ID',
+                captcha_id INT NOT NULL COMMENT '关联code_captcha的验证码ID',
+                input_captcha VARCHAR(4) NOT NULL COMMENT '用户输入的验证码',
+                correct_captcha VARCHAR(4) NOT NULL COMMENT '数据库中的正确验证码',
+                is_match TINYINT(1) NOT NULL COMMENT '是否匹配：1=是，0=否',
+                verify_user VARCHAR(50) NOT NULL COMMENT '验证的账号',
+                verify_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '验证时间',
+                FOREIGN KEY (captcha_id) REFERENCES code_captcha(id) COMMENT '关联验证码表',
+                FOREIGN KEY (verify_user) REFERENCES code_user(username) COMMENT '关联用户表'
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT '验证码验证系统日志表';
+            """
+            # 执行建表语句（仅创建缺失表）
             cursor.execute(create_user_sql)
             cursor.execute(create_captcha_sql)
+            cursor.execute(create_log_sql)
 
             # 确保固定账号xiaoke存在（密码xiaoke123）
             insert_user_sql = """
@@ -107,9 +123,44 @@ def init_captcha_tables():
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             cursor.execute(insert_user_sql, ("xiaoke", encrypt_password("xiaoke123"), now, now))
         conn.commit()
-        print("✅ 数据库表初始化完成（兼容已有数据），确保xiaoke账号存在")
+        print("✅ 数据库表初始化完成（含日志表code_verify_log），确保xiaoke账号存在")
     except Exception as e:
         print(f"❌ 表初始化失败：{e}")
+    finally:
+        conn.close()
+
+
+def insert_verify_log(captcha_id, input_captcha, correct_captcha, is_match, verify_user):
+    """
+    新增：写入验证码验证日志到数据库
+    :param captcha_id: 验证码ID（关联code_captcha.id）
+    :param input_captcha: 用户输入的验证码
+    :param correct_captcha: 正确的验证码
+    :param is_match: 是否匹配（1/0）
+    :param verify_user: 验证的账号
+    :return: bool - 日志写入是否成功
+    """
+    conn = get_mysql_conn()
+    if not conn:
+        print("❌ 日志写入失败：数据库连接失败")
+        return False
+    try:
+        insert_sql = """
+        INSERT INTO code_verify_log (captcha_id, input_captcha, correct_captcha, is_match, verify_user, verify_time)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with conn.cursor() as cursor:
+            cursor.execute(insert_sql, (
+                captcha_id, input_captcha, correct_captcha, is_match, verify_user, now
+            ))
+        conn.commit()
+        print(f"✅ 日志写入成功：账号[{verify_user}]，验证码ID[{captcha_id}]，输入[{input_captcha}]，正确[{correct_captcha}]，匹配[{is_match}]")
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"❌ 日志写入失败：{e}")
+        return False
     finally:
         conn.close()
 
@@ -398,7 +449,7 @@ def api_get_captcha():
         conn.close()
 
 
-# ------------------------ 新增：秒杀接口（复用原有识别逻辑，核心修改） ------------------------
+# ------------------------ 秒杀接口（复用原有识别逻辑，完全保留） ------------------------
 @app.route("/api/predict_captcha", methods=["POST"])
 def predict_captcha():
     """秒杀接口：根据captcha_id调用model.pth识别验证码，返回预测结果"""
@@ -441,9 +492,10 @@ def predict_captcha():
         return jsonify({"success": False, "msg": f"秒杀失败：{str(e)[:30]}"})
 
 
+# ------------------------ 登录验证接口（核心修改：新增日志记录） ------------------------
 @app.route("/api/login", methods=["POST"])
 def api_login():
-    """登录验证（账号xiaoke/密码xiaoke123 + 数据库验证码验证）"""
+    """登录验证（账号xiaoke/密码xiaoke123 + 数据库验证码验证 + 自动记录系统日志）"""
     data = request.get_json()
     username = data.get("username", "").strip()
     password = data.get("password", "").strip()
@@ -464,29 +516,51 @@ def api_login():
         cursor.execute("SELECT password FROM code_user WHERE username = %s", (username,))
         user = cursor.fetchone()
         if not user:
+            # 账号错误也记录日志（空值标识，便于排查）
+            insert_verify_log(captcha_id, input_captcha, "未知", 0, username)
             return jsonify({"success": False, "msg": "仅支持固定账号：xiaoke！"})
         if not verify_password(password, user["password"]):
+            # 密码错误也记录日志
+            insert_verify_log(captcha_id, input_captcha, "未知", 0, username)
             return jsonify({"success": False, "msg": "密码错误！正确密码：xiaoke123！"})
 
         # 2. 从数据库查询**正确验证码**（核心：使用已有code_captcha数据）
         cursor.execute("SELECT correct_code FROM code_captcha WHERE id = %s", (captcha_id,))
         captcha = cursor.fetchone()
         if not captcha:
+            # 验证码ID无效也记录日志
+            insert_verify_log(captcha_id, input_captcha, "验证码过期", 0, username)
             return jsonify({"success": False, "msg": "验证码已过期，请刷新图片！"})
+        correct_code = captcha["correct_code"]
 
         # 3. 验证验证码（忽略大小写）
-        if input_captcha.lower() != captcha["correct_code"].lower():
-            return jsonify({"success": False, "msg": f"验证码错误！正确码：{captcha['correct_code']}"})
+        is_match = 1 if input_captcha.lower() == correct_code.lower() else 0
 
-        return jsonify({"success": True, "msg": "登录成功！即将进入识别系统！"})
+        # 核心新增：无论是否匹配，**强制写入系统日志**
+        log_result = insert_verify_log(captcha_id, input_captcha, correct_code, is_match, username)
+        log_msg = "日志记录成功" if log_result else "日志记录失败（不影响验证）"
+
+        # 4. 返回验证结果（拼接日志反馈）
+        if is_match:
+            return jsonify({
+                "success": True,
+                "msg": f"登录成功！即将进入识别系统！【{log_msg}】"
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "msg": f"验证码错误！正确码：{correct_code}【{log_msg}】"
+            })
     except Exception as e:
         print(f"❌ 登录验证失败：{e}")
-        return jsonify({"success": False, "msg": f"登录失败：{str(e)[:30]}"}), 500
+        # 异常情况也尝试记录日志
+        insert_verify_log(captcha_id, input_captcha, "系统异常", 0, username)
+        return jsonify({"success": False, "msg": f"登录失败：{str(e)[:30]}【日志记录失败】"}), 500
     finally:
         conn.close()
 
 
 # ------------------------ 程序入口（启动即可用） ------------------------
 if __name__ == "__main__":
-    init_captcha_tables()  # 仅初始化缺失表/账号，不影响已有数据
+    init_captcha_tables()  # 初始化所有表（含日志表），仅创建缺失表
     app.run(debug=True, host="0.0.0.0", port=5000)
