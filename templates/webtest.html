@@ -33,7 +33,7 @@
             box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
         }
         .captcha-img-box {
-            margin-top: 24px;
+            margin-top: 0;
         }
         .captcha-img {
             width: 120px;
@@ -62,6 +62,24 @@
         .btn-group {
             gap: 10px;
         }
+        /* 秒杀按钮：横向文字+绿色底色（核心修改） */
+        .seckill-btn {
+            height: 38px;
+            padding: 0 15px;
+            font-size: 14px;
+            background-color: #28a745;
+            color: #fff !important;
+            line-height: 38px;
+            white-space: nowrap;
+            border-radius: 0;
+            border: none;
+        }
+        .seckill-btn:hover {
+            background-color: #218838;
+            border-color: #218838;
+            color: #fff !important;
+        }
+        /* 移动端适配 */
         @media (max-width: 576px) {
             .login-card {
                 padding: 20px;
@@ -69,6 +87,12 @@
             .captcha-img {
                 width: 100px;
                 height: 36px;
+            }
+            .seckill-btn {
+                height: 36px;
+                padding: 0 10px;
+                font-size: 12px;
+                line-height: 36px;
             }
         }
     </style>
@@ -88,16 +112,19 @@
                     <input type="password" class="form-control" id="password" value="xiaoke123" placeholder="请输入密码">
                     <div class="form-text">固定密码：xiaoke123</div>
                 </div>
+                <!-- 验证码输入区域：输入框 + 横向绿色秒杀按钮 + 验证码图片 -->
                 <div class="mb-3 d-flex align-items-center gap-2">
-                    <div class="flex-grow-1">
-                        <label for="captcha" class="form-label">验证码</label>
-                        <input type="text" class="form-control" id="captcha" placeholder="输入图片前4位验证码" maxlength="4">
+                    <div class="flex-grow-1 d-flex gap-2">
+                        <label for="captcha" class="form-label visually-hidden">验证码</label>
+                        <input type="text" class="form-control flex-grow-1" id="captcha" placeholder="输入图片前4位验证码" maxlength="4">
+                        <!-- 横向绿色秒杀按钮 -->
+                        <button type="button" class="btn seckill-btn" id="seckillBtn">秒杀</button>
                     </div>
                     <div class="captcha-img-box">
                         <img id="captchaImg" src="" alt="验证码图片" title="点击刷新" class="captcha-img">
                     </div>
                 </div>
-                <!-- 新增：返回按钮 + 登录按钮 组合，样式统一，间距协调 -->
+                <!-- 返回按钮 + 登录按钮 组合 -->
                 <div class="layui-form-item btn-group d-flex w-100">
                     <a href="/" class="btn btn-secondary w-50">返回</a>
                     <button type="button" class="btn btn-primary w-50" id="loginBtn">登录测试</button>
@@ -114,12 +141,11 @@
             refreshCaptcha();
             // 点击图片刷新验证码
             $('#captchaImg').click(refreshCaptcha);
-            // 登录按钮点击事件
+            // 登录按钮点击事件（原有逻辑，无改动）
             $('#loginBtn').click(function() {
                 const username = $('#username').val().trim();
                 const password = $('#password').val().trim();
                 const captcha = $('#captcha').val().trim();
-                // 简单校验
                 if (!captcha || captcha.length !== 4) {
                     showTip('请输入4位有效验证码！', 'danger');
                     return;
@@ -128,9 +154,7 @@
                     showTip('验证码未加载，请刷新页面！', 'danger');
                     return;
                 }
-                // 按钮置灰，防止重复提交
                 $(this).attr('disabled', true).text('验证中...');
-                // 提交登录请求
                 $.ajax({
                     url: '/api/login',
                     type: 'POST',
@@ -143,19 +167,16 @@
                     }),
                     success: function(res) {
                         if (res.success) {
-                            // 验证成功：显示绿色弹窗，1.5秒后跳转到home.html
                             showTip('验证码正确，准备跳转主页', 'success');
                             setTimeout(function() {
                                 window.location.href = 'home.html';
-                            }, 1500); // 1.5秒后跳转
+                            }, 1500);
                         } else {
-                            // 验证失败：显示2秒红色弹窗，后刷新验证码
                             showTip('验证码错误，请重试', 'danger');
-                            // 2秒后隐藏弹窗并刷新验证码
                             setTimeout(function() {
                                 $('#resultTip').addClass('d-none');
-                                refreshCaptcha(); // 刷新新的验证码图片
-                                $('#captcha').val(''); // 清空输入框
+                                refreshCaptcha();
+                                $('#captcha').val('');
                             }, 2000);
                         }
                     },
@@ -163,13 +184,52 @@
                         showTip('网络错误，请检查后端服务！', 'danger');
                     },
                     complete: function() {
-                        // 恢复按钮状态
                         $('#loginBtn').attr('disabled', false).text('登录测试');
                     }
                 });
             });
 
-            // 刷新验证码：从数据库随机获取新图片
+            // 秒杀按钮点击事件 - 调用模型识别验证码并自动填充
+            $('#seckillBtn').click(function() {
+                if (!currentCaptchaId) {
+                    showTip('验证码未加载，请先刷新图片！', 'danger');
+                    return;
+                }
+                // 按钮置灰，防止重复点击
+                $(this).attr('disabled', true).text('识别中...');
+                // 调用后端模型预测接口
+                $.ajax({
+                    url: '/api/predict_captcha',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        captcha_id: currentCaptchaId  // 传递当前验证码ID
+                    }),
+                    success: function(res) {
+                        if (res.success) {
+                            // 识别成功：自动填充验证码到输入框，绿色提示
+                            $('#captcha').val(res.captcha);
+                            showTip('秒杀成功！已自动填充验证码', 'success');
+                            // 3秒后隐藏成功提示
+                            setTimeout(function() {
+                                $('#resultTip').addClass('d-none');
+                            }, 3000);
+                        } else {
+                            // 识别失败：红色提示错误信息
+                            showTip(res.msg, 'danger');
+                        }
+                    },
+                    error: function() {
+                        showTip('模型调用失败，请检查后端！', 'danger');
+                    },
+                    complete: function() {
+                        // 恢复秒杀按钮状态
+                        $('#seckillBtn').attr('disabled', false).text('秒杀');
+                    }
+                });
+            });
+
+            // 刷新验证码：从数据库随机获取新图片（原有逻辑，无改动）
             function refreshCaptcha() {
                 $.ajax({
                     url: '/api/get_captcha',
@@ -178,7 +238,8 @@
                         if (res.success) {
                             $('#captchaImg').attr('src', res.data.img_url).attr('alt', '验证码图片');
                             currentCaptchaId = res.data.captcha_id;
-                            $('#resultTip').addClass('d-none'); // 隐藏之前的提示
+                            $('#captcha').val(''); // 刷新图片时清空输入框
+                            $('#resultTip').addClass('d-none');
                         } else {
                             showTip(res.msg, 'danger');
                             $('#captchaImg').attr('src', '').attr('alt', '验证码加载失败');
@@ -190,7 +251,7 @@
                 });
             }
 
-            // 提示弹窗显示函数
+            // 提示弹窗显示函数（原有逻辑，无改动）
             function showTip(msg, type) {
                 const tipBox = $('#resultTip');
                 tipBox.removeClass('d-none alert-success alert-danger')

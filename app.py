@@ -398,6 +398,49 @@ def api_get_captcha():
         conn.close()
 
 
+# ------------------------ 新增：秒杀接口（复用原有识别逻辑，核心修改） ------------------------
+@app.route("/api/predict_captcha", methods=["POST"])
+def predict_captcha():
+    """秒杀接口：根据captcha_id调用model.pth识别验证码，返回预测结果"""
+    try:
+        # 1. 获取前端传递的验证码ID
+        data = request.get_json()
+        captcha_id = data.get("captcha_id")
+        if not captcha_id or not str(captcha_id).isdigit():
+            return jsonify({"success": False, "msg": "缺少有效验证码ID！"})
+        captcha_id = int(captcha_id)
+
+        # 2. 从数据库查询验证码图片实际路径（复用已有数据库逻辑）
+        conn = get_mysql_conn()
+        if not conn:
+            return jsonify({"success": False, "msg": "数据库连接失败！"})
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT captcha_img_path FROM code_captcha WHERE id = %s", (captcha_id,))
+            img_info = cursor.fetchone()
+        conn.close()
+        if not img_info:
+            return jsonify({"success": False, "msg": "验证码图片不存在，请刷新！"})
+        img_abs_path = img_info["captcha_img_path"]
+
+        # 3. 校验图片文件是否存在
+        if not os.path.exists(img_abs_path):
+            return jsonify({"success": False, "msg": f"图片文件丢失：{os.path.basename(img_abs_path)}"})
+
+        # 4. 复用原有识别逻辑（核心：不重复写模型代码，直接调用recognize_captcha）
+        pred_captcha = recognize_captcha(img_abs_path)
+        if not pred_captcha or len(str(pred_captcha)) != 4:
+            return jsonify({"success": False, "msg": "模型识别失败，请重试！"})
+
+        # 5. 返回成功结果（4位验证码）
+        return jsonify({
+            "success": True,
+            "captcha": str(pred_captcha)  # 确保为字符串格式
+        })
+    except Exception as e:
+        print(f"❌ 秒杀接口执行失败：{e}")
+        return jsonify({"success": False, "msg": f"秒杀失败：{str(e)[:30]}"})
+
+
 @app.route("/api/login", methods=["POST"])
 def api_login():
     """登录验证（账号xiaoke/密码xiaoke123 + 数据库验证码验证）"""
