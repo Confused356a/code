@@ -1,10 +1,14 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory
 from flask_wtf import FlaskForm
 from wtforms import FileField, SubmitField
 from wtforms.validators import DataRequired
 from werkzeug.utils import secure_filename
 import os
 import torch
+import pymysql
+import hashlib
+import random
+from datetime import datetime
 from PIL import Image
 from torchvision import transforms
 import one_hot
@@ -21,6 +25,12 @@ app.config["UPLOAD_FOLDER"] = "uploads"  # 上传文件临时目录
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 限制上传大小16MB
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)  # 自动创建上传目录
 
+# ===================== 需修改的2处配置 =====================
+MYSQL_PASSWORD = "你的NavicatMySQL密码"  # 改为你的MySQL密码（如123456）
+CAPTCHA_IMG_FOLDER = r"K:\pytorch\tutorial\dataset\test"  # 验证码图片目录（K盘）
+# ==========================================================
+ALLOWED_IMG_SUFFIX = [".png", ".jpg", ".jpeg", ".bmp"]  # 支持的图片格式
+
 # ------------------------ 模型加载（复用你的推理逻辑） ------------------------
 # 全局加载模型（只加载一次，提升效率）
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -29,7 +39,117 @@ MODEL = torch.load("model.pth", weights_only=False).to(DEVICE)
 MODEL.eval()  # 设为评估模式，关闭Dropout/BatchNorm等训练层
 
 
-# ------------------------ 图片预处理函数（和你的predict.py完全一致） ------------------------
+# ------------------------ MySQL数据库操作（新增：验证码/登录相关） ------------------------
+def get_mysql_conn():
+    """创建MySQL连接，连接code_user_db数据库"""
+    try:
+        conn = pymysql.connect(
+            host="localhost",
+            user="root",
+            password=MYSQL_PASSWORD,
+            db="code_user_db",
+            charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        return conn
+    except Exception as e:
+        print(f"❌ MySQL连接失败：{e}")
+        return None
+
+
+def encrypt_password(password: str) -> str:
+    """密码SHA256加密，存储固定账号密码"""
+    sha256 = hashlib.sha256()
+    sha256.update(password.encode("utf-8"))
+    return sha256.hexdigest()
+
+
+def verify_password(input_pwd: str, db_pwd: str) -> bool:
+    """验证输入密码与加密密码是否一致"""
+    return encrypt_password(input_pwd) == db_pwd
+
+
+def init_captcha_tables():
+    """初始化数据库表：code_user（固定账号）、code_captcha（验证码图片）"""
+    conn = get_mysql_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cursor:
+            # 创建登录账号表
+            create_user_sql = """
+            CREATE TABLE IF NOT EXISTS code_user (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                username VARCHAR(50) NOT NULL UNIQUE,
+                password VARCHAR(100) NOT NULL,
+                create_time DATETIME NOT NULL,
+                update_time DATETIME NOT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            """
+            # 创建验证码图片表
+            create_captcha_sql = """
+            CREATE TABLE IF NOT EXISTS code_captcha (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                captcha_img_path VARCHAR(255) NOT NULL UNIQUE,
+                correct_code VARCHAR(4) NOT NULL,
+                create_time DATETIME NOT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            """
+            cursor.execute(create_user_sql)
+            cursor.execute(create_captcha_sql)
+
+            # 插入固定账号：xiaoke，密码：xiaoke123（仅首次运行插入）
+            insert_user_sql = """
+            INSERT IGNORE INTO code_user (username, password, create_time, update_time)
+            VALUES (%s, %s, %s, %s)
+            """
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            cursor.execute(insert_user_sql, ("xiaoke", encrypt_password("xiaoke123"), now, now))
+        conn.commit()
+        print("✅ 数据库表初始化成功，已插入固定账号xiaoke")
+    except Exception as e:
+        print(f"❌ 表初始化失败：{e}")
+    finally:
+        conn.close()
+
+
+def batch_import_captcha_imgs():
+    """批量导入K盘验证码图片到数据库，提取图片名前4位为正确码"""
+    if not os.path.exists(CAPTCHA_IMG_FOLDER):
+        print(f"⚠️  验证码图片文件夹不存在：{CAPTCHA_IMG_FOLDER}")
+        return
+    img_files = [f for f in os.listdir(CAPTCHA_IMG_FOLDER)
+                 if os.path.splitext(f)[1].lower() in ALLOWED_IMG_SUFFIX]
+    if not img_files:
+        print(f"⚠️  文件夹中无符合格式的图片")
+        return
+
+    conn = get_mysql_conn()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cursor:
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            success_count = 0
+            for img_file in img_files:
+                correct_code = img_file[:4].strip()  # 前4位为正确验证码
+                img_abs_path = os.path.abspath(os.path.join(CAPTCHA_IMG_FOLDER, img_file))
+                # 避免重复导入
+                insert_sql = """
+                INSERT IGNORE INTO code_captcha (captcha_img_path, correct_code, create_time)
+                VALUES (%s, %s, %s)
+                """
+                cursor.execute(insert_sql, (img_abs_path, correct_code, now))
+                success_count += 1
+        conn.commit()
+        print(f"✅ 验证码图片导入完成：{success_count}/{len(img_files)}张")
+    except Exception as e:
+        print(f"❌ 图片导入失败：{e}")
+    finally:
+        conn.close()
+
+
+# ------------------------ 图片预处理函数（原逻辑不变） ------------------------
 def preprocess_image(image_path):
     """
     图片预处理：灰度化→Resize→ToTensor→调整形状
@@ -52,7 +172,7 @@ def preprocess_image(image_path):
         return None
 
 
-# ------------------------ 验证码识别核心函数 ------------------------
+# ------------------------ 验证码识别核心函数（原逻辑不变） ------------------------
 def recognize_captcha(image_path):
     """
     单张验证码识别
@@ -78,7 +198,7 @@ def recognize_captcha(image_path):
         return None
 
 
-# ------------------------ 表单定义 ------------------------
+# ------------------------ 表单定义（原逻辑不变） ------------------------
 # 单张识别表单
 class SingleUploadForm(FlaskForm):
     file = FileField("上传验证码图片", validators=[DataRequired()])
@@ -91,10 +211,10 @@ class BatchUploadForm(FlaskForm):
     submit = SubmitField("批量识别")
 
 
-# ------------------------ 路由定义 ------------------------
+# ------------------------ 原有路由（新增随机测试按钮，其余不变） ------------------------
 @app.route("/", methods=["GET", "POST"])
 def single_recognize():
-    """单张验证码识别页面（标准答案对比+对错标记）"""
+    """单张验证码识别页面（标准答案对比+对错标记，新增【随机测试】按钮）"""
     form = SingleUploadForm()
     result = None  # 识别结果
     standard_answer = None  # 标准答案（文件名前4位）
@@ -131,6 +251,7 @@ def single_recognize():
         # 6. 删除临时文件
         os.remove(file_path)
 
+    # 渲染页面，传递参数不变，前端通过模板添加按钮
     return render_template(
         "single.html",
         form=form,
@@ -277,6 +398,94 @@ def api_recognize():
         return jsonify({"code": 500, "msg": f"服务器错误：{str(e)[:50]}", "result": ""})
 
 
-# ------------------------ 启动应用 ------------------------
+# ------------------------ 新增路由（webtest.html+验证码/登录接口） ------------------------
+@app.route("/webtest.html")
+def webtest_page():
+    """验证码登录页面（随机测试）"""
+    return render_template("webtest.html")
+
+
+@app.route("/captcha_imgs/<filename>")
+def serve_captcha_img(filename):
+    """提供K盘验证码图片访问服务"""
+    return send_from_directory(CAPTCHA_IMG_FOLDER, filename)
+
+
+@app.route("/api/get_captcha", methods=["GET"])
+def api_get_captcha():
+    """接口：从数据库随机抽取一张验证码图片"""
+    conn = get_mysql_conn()
+    if not conn:
+        return jsonify({"success": False, "msg": "数据库连接失败"})
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) as total FROM code_captcha")
+            total = cursor.fetchone()["total"]
+            if total == 0:
+                return jsonify({"success": False, "msg": "无验证码图片，请先导入"})
+            random_id = random.randint(1, total)
+            cursor.execute("SELECT * FROM code_captcha WHERE id = %s", (random_id,))
+            captcha = cursor.fetchone()
+            img_filename = os.path.basename(captcha["captcha_img_path"])
+            img_url = f"/captcha_imgs/{img_filename}"
+        return jsonify({
+            "success": True,
+            "data": {
+                "captcha_id": captcha["id"],
+                "img_url": img_url
+            }
+        })
+    except Exception as e:
+        return jsonify({"success": False, "msg": f"抽取失败：{str(e)}"})
+    finally:
+        conn.close()
+
+
+@app.route("/api/login", methods=["POST"])
+def api_login():
+    """接口：登录验证（账号xiaoke/密码xiaoke123+验证码）"""
+    data = request.get_json()
+    username = data.get("username", "").strip()
+    password = data.get("password", "").strip()
+    input_captcha = data.get("captcha", "").strip()
+    captcha_id = data.get("captcha_id", "")
+
+    if not all([username, password, input_captcha, captcha_id]):
+        return jsonify({"success": False, "msg": "参数不完整"})
+
+    conn = get_mysql_conn()
+    if not conn:
+        return jsonify({"success": False, "msg": "数据库连接失败"})
+
+    try:
+        # 校验账号密码
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT * FROM code_user WHERE username = %s", (username,))
+            user = cursor.fetchone()
+            if not user:
+                return jsonify({"success": False, "msg": "仅支持账号：xiaoke"})
+            if not verify_password(password, user["password"]):
+                return jsonify({"success": False, "msg": "密码错误，正确密码：xiaoke123"})
+
+        # 校验验证码
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT * FROM code_captcha WHERE id = %s", (captcha_id,))
+            captcha = cursor.fetchone()
+            if not captcha:
+                return jsonify({"success": False, "msg": "验证码已过期，请刷新"})
+            if input_captcha.lower() != captcha["correct_code"].lower():
+                return jsonify({"success": False, "msg": f"验证码错误！正确码：{captcha['correct_code']}"})
+
+        return jsonify({"success": True, "msg": "登录成功，即将进入识别页面！"})
+    except Exception as e:
+        return jsonify({"success": False, "msg": f"登录失败：{str(e)}"})
+    finally:
+        conn.close()
+
+
+# ------------------------ 启动应用（初始化数据库+导入图片） ------------------------
 if __name__ == "__main__":
+    # 首次运行自动初始化表+导入K盘验证码图片（后续可注释，避免重复执行）
+    init_captcha_tables()
+    batch_import_captcha_imgs()
     app.run(debug=True, host="0.0.0.0", port=5000)

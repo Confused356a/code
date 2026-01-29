@@ -25,13 +25,40 @@
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
         }
 
+        /* 标题及按钮容器（新增：适配随机测试按钮） */
+        .title-box {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
         /* 标题样式 */
         h1 {
             text-align: center;
             color: #333;
-            margin-bottom: 30px;
             font-size: 26px;
             font-weight: 600;
+            margin: 0;
+        }
+
+        /* 随机测试按钮（新增：风格和原有按钮统一） */
+        .random-test-btn {
+            padding: 8px 16px;
+            background-color: #ffc107;
+            color: #212529;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background-color 0.3s ease;
+            text-decoration: none;
+        }
+
+        .random-test-btn:hover {
+            background-color: #ffb300;
+            color: #212529;
         }
 
         /* 表单区域 */
@@ -143,6 +170,11 @@
                 font-size: 22px;
             }
 
+            .random-test-btn {
+                padding: 6px 12px;
+                font-size: 13px;
+            }
+
             .result-item {
                 font-size: 14px;
             }
@@ -151,7 +183,12 @@
 </head>
 <body>
     <div class="container">
-        <h1>验证码单张识别工具</h1>
+        <!-- 新增：标题+随机测试按钮容器 -->
+        <div class="title-box">
+            <h1>验证码单张识别工具</h1>
+            <!-- 随机测试按钮：跳转到webtest.html -->
+            <a href="{{ url_for('webtest_page') }}" class="random-test-btn">随机测试</a>
+        </div>
 
         <!-- 单张上传表单 -->
         <form method="POST" enctype="multipart/form-data">
